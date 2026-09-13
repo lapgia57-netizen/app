@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <!-- ĐĂNG NHẬP -->
+        <LinearLayout
+            android:id="@+id/authContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🩺 Hồ Sơ Y Đức"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:gravity="center"
+                android:layout_marginBottom="16dp" />
+
+            <EditText
+                android:id="@+id/etDisplayName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Tên hiển thị"
+                android:visibility="gone"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/etEmail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Email"
+                android:inputType="textEmailAddress"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/etPassword"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Mật khẩu"
+                android:inputType="textPassword"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btnAuth"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Đăng nhập"
+                android:backgroundTint="@color/primary"
+                android:textColor="@color/white" />
+
+            <TextView
+                android:id="@+id/tvToggleMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Chưa có tài khoản? Đăng ký ngay"
+                android:textColor="@color/primary"
+                android:gravity="center"
+                android:padding="12dp" />
+
+            <TextView
+                android:id="@+id/tvAuthError"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/danger"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- DASHBOARD -->
+        <LinearLayout
+            android:id="@+id/dashboardContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:id="@+id/tvUserInfo"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnLogout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Đăng xuất"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvCount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Tổng bản ghi: 0"
+                android:background="@color/white"
+                android:padding="10dp"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btnTimezoneSettings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⏱ Chọn múi giờ để lưu trữ"
+                android:backgroundTint="@color/white"
+                android:textColor="@color/primary"
+                android:layout_marginBottom="10dp" />
+
+            <EditText
+                android:id="@+id/etManualInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Nhập thông tin / ghi chú..."
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnManualSave"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="＋ Lưu"
+                android:backgroundTint="@color/primary"
+                android:textColor="@color/white"
+                android:layout_marginBottom="12dp" />
+
+            <EditText
+                android:id="@+id/etSearch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Tìm kiếm..."
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="10dp">
+
+                <Button
+                    android:id="@+id/btnExport"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Xuất backup"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btnImport"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Khôi phục"
+                    android:layout_marginStart="4dp" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+
+            <TextView
+                android:id="@+id/tvEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Chưa có dữ liệu"
+                android:gravity="center"
+                android:padding="24dp"
+                android:textColor="@color/gray"
+                android:visibility="gone" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

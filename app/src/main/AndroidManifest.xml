@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.HoSoYDuc"
+        android:usesCleartextTraffic="false">
+
+        <!-- Màn hình chính: đăng nhập + danh sách bản ghi + cài đặt múi giờ -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Activity này khiến app xuất hiện như một lựa chọn trong menu
+          khi người dùng BÔI ĐEN văn bản ở bất kỳ app nào khác (Chrome,
+          Ghi chú, Tin nhắn...). Đây là cơ chế ACTION_PROCESS_TEXT chuẩn
+          của Android — CHỈ kích hoạt khi người dùng chủ động bôi đen và
+          chọn app này từ menu, không tự chạy nền.
+        -->
+        <activity
+            android:name=".ProcessTextActivity"
+            android:exported="true"
+            android:label="Lưu vào Hồ Sơ Y Đức"
+            android:theme="@style/Theme.HoSoYDuc.Dialog">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+    </application>
+</manifest>

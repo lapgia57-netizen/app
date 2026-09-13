@@ -1,0 +1,8 @@
+<resources>
+    <color name="primary">#4361EE</color>
+    <color name="secondary">#3F37C9</color>
+    <color name="danger">#F72585</color>
+    <color name="gray">#6C757D</color>
+    <color name="background">#F4F6F9</color>
+    <color name="white">#FFFFFF</color>
+</resources>
