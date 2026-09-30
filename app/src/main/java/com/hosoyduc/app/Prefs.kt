@@ -22,7 +22,7 @@ object Prefs {
     private const val KEY_EXPIRES_AT = "expiresAt"
     private const val KEY_TIMEZONES = "timezones"
 
-    val DEFAULT_TIMEZONES = listOf("VN", "KR", "CN", "JP")
+    val DEFAULT_TIMEZONES = listOf("VN", "KR", "CN", "JP", "SG", "TH")
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 

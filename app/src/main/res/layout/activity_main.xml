@@ -119,7 +119,7 @@
                 android:id="@+id/btnTimezoneSettings"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="⏱ Chọn múi giờ để lưu trữ"
+                android:text="⏱ Chọn múi giờ lưu trữ (24 vùng)"
                 android:backgroundTint="@color/white"
                 android:textColor="@color/primary"
                 android:layout_marginBottom="10dp" />

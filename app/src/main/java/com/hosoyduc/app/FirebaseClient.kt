@@ -14,22 +14,37 @@ object FirebaseConfig {
     const val DATABASE_URL = "https://fbamthucdouong-default-rtdb.asia-southeast1.firebasedatabase.app"
 }
 
-// Danh sách múi giờ hỗ trợ — có thể mở rộng
+// Danh sách 24 múi giờ hỗ trợ
 data class TimezoneOption(val code: String, val label: String, val zoneId: String, val locale: java.util.Locale)
 
 val SUPPORTED_TIMEZONES = listOf(
-    TimezoneOption("VN", "Việt Nam (Hà Nội)", "Asia/Ho_Chi_Minh", java.util.Locale("vi", "VN")),
-    TimezoneOption("KR", "Hàn Quốc (Seoul)", "Asia/Seoul", java.util.Locale("ko", "KR")),
-    TimezoneOption("CN", "Trung Quốc (Thượng Hải)", "Asia/Shanghai", java.util.Locale("zh", "CN")),
-    TimezoneOption("JP", "Nhật Bản (Tokyo)", "Asia/Tokyo", java.util.Locale("ja", "JP")),
-    TimezoneOption("US", "Mỹ (New York)", "America/New_York", java.util.Locale("en", "US")),
-    TimezoneOption("UK", "Anh (London)", "Europe/London", java.util.Locale("en", "GB")),
-    TimezoneOption("FR", "Pháp (Paris)", "Europe/Paris", java.util.Locale("fr", "FR")),
-    TimezoneOption("DE", "Đức (Berlin)", "Europe/Berlin", java.util.Locale("de", "DE")),
-    TimezoneOption("AU", "Úc (Sydney)", "Australia/Sydney", java.util.Locale("en", "AU")),
-    TimezoneOption("IN", "Ấn Độ (Kolkata)", "Asia/Kolkata", java.util.Locale("en", "IN")),
-    TimezoneOption("SG", "Singapore", "Asia/Singapore", java.util.Locale("en", "SG")),
-    TimezoneOption("AE", "UAE (Dubai)", "Asia/Dubai", java.util.Locale("ar", "AE"))
+    // Châu Á
+    TimezoneOption("VN", "Việt Nam (Hà Nội) UTC+7", "Asia/Ho_Chi_Minh", java.util.Locale("vi", "VN")),
+    TimezoneOption("TH", "Thái Lan (Bangkok) UTC+7", "Asia/Bangkok", java.util.Locale("th", "TH")),
+    TimezoneOption("ID", "Indonesia (Jakarta) UTC+7", "Asia/Jakarta", java.util.Locale("id", "ID")),
+    TimezoneOption("SG", "Singapore UTC+8", "Asia/Singapore", java.util.Locale("en", "SG")),
+    TimezoneOption("MY", "Malaysia (Kuala Lumpur) UTC+8", "Asia/Kuala_Lumpur", java.util.Locale("ms", "MY")),
+    TimezoneOption("PH", "Philippines (Manila) UTC+8", "Asia/Manila", java.util.Locale("en", "PH")),
+    TimezoneOption("CN", "Trung Quốc (Bắc Kinh) UTC+8", "Asia/Shanghai", java.util.Locale("zh", "CN")),
+    TimezoneOption("HK", "Hồng Kông UTC+8", "Asia/Hong_Kong", java.util.Locale("zh", "HK")),
+    TimezoneOption("TW", "Đài Loan (Đài Bắc) UTC+8", "Asia/Taipei", java.util.Locale("zh", "TW")),
+    TimezoneOption("KR", "Hàn Quốc (Seoul) UTC+9", "Asia/Seoul", java.util.Locale("ko", "KR")),
+    TimezoneOption("JP", "Nhật Bản (Tokyo) UTC+9", "Asia/Tokyo", java.util.Locale("ja", "JP")),
+    TimezoneOption("IN", "Ấn Độ (Kolkata) UTC+5:30", "Asia/Kolkata", java.util.Locale("en", "IN")),
+    TimezoneOption("AE", "UAE (Dubai) UTC+4", "Asia/Dubai", java.util.Locale("ar", "AE")),
+    // Châu Âu
+    TimezoneOption("UK", "Anh (London) UTC+0/+1", "Europe/London", java.util.Locale("en", "GB")),
+    TimezoneOption("FR", "Pháp (Paris) UTC+1/+2", "Europe/Paris", java.util.Locale("fr", "FR")),
+    TimezoneOption("DE", "Đức (Berlin) UTC+1/+2", "Europe/Berlin", java.util.Locale("de", "DE")),
+    TimezoneOption("IT", "Ý (Rome) UTC+1/+2", "Europe/Rome", java.util.Locale("it", "IT")),
+    TimezoneOption("ES", "Tây Ban Nha (Madrid) UTC+1/+2", "Europe/Madrid", java.util.Locale("es", "ES")),
+    TimezoneOption("RU", "Nga (Moscow) UTC+3", "Europe/Moscow", java.util.Locale("ru", "RU")),
+    // Châu Mỹ & Úc
+    TimezoneOption("US_NY", "Mỹ Đông (New York) UTC-5/-4", "America/New_York", java.util.Locale("en", "US")),
+    TimezoneOption("US_LA", "Mỹ Tây (Los Angeles) UTC-8/-7", "America/Los_Angeles", java.util.Locale("en", "US")),
+    TimezoneOption("US_CHI", "Mỹ Trung (Chicago) UTC-6/-5", "America/Chicago", java.util.Locale("en", "US")),
+    TimezoneOption("BR", "Brazil (São Paulo) UTC-3", "America/Sao_Paulo", java.util.Locale("pt", "BR")),
+    TimezoneOption("AU", "Úc (Sydney) UTC+10/+11", "Australia/Sydney", java.util.Locale("en", "AU"))
 )
 
 fun computeTimes(codes: List<String>): Map<String, String> {

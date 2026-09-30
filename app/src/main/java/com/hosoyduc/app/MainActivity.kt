@@ -192,20 +192,29 @@ class MainActivity : AppCompatActivity() {
 
     private fun showTimezoneDialog() {
         val current = Prefs.getSelectedTimezones(this).toMutableList()
+        // Lọc bỏ code cũ không còn trong danh sách (ví dụ "US" → "US_NY")
+        current.retainAll { code -> SUPPORTED_TIMEZONES.any { it.code == code } }
         val labels = SUPPORTED_TIMEZONES.map { it.label }.toTypedArray()
         val checked = SUPPORTED_TIMEZONES.map { current.contains(it.code) }.toBooleanArray()
 
         AlertDialog.Builder(this)
-            .setTitle("Chọn múi giờ để lưu trữ")
+            .setTitle("Chọn múi giờ lưu trữ (${SUPPORTED_TIMEZONES.size} vùng)")
             .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
                 val code = SUPPORTED_TIMEZONES[which].code
-                if (isChecked) { if (!current.contains(code)) current.add(code) }
-                else current.remove(code)
+                if (isChecked) {
+                    if (!current.contains(code)) current.add(code)
+                } else {
+                    current.remove(code)
+                }
             }
             .setPositiveButton("Lưu") { _, _ ->
                 val finalList = if (current.isEmpty()) listOf("VN") else current
                 Prefs.setSelectedTimezones(this, finalList)
-                toast("Đã cập nhật múi giờ lưu trữ.")
+                toast("Đã lưu ${finalList.size} múi giờ.")
+            }
+            .setNeutralButton("Chọn mặc định") { _, _ ->
+                Prefs.setSelectedTimezones(this, Prefs.DEFAULT_TIMEZONES)
+                toast("Đã đặt lại múi giờ mặc định.")
             }
             .setNegativeButton("Huỷ", null)
             .show()
