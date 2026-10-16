@@ -23,7 +23,7 @@ class ProcessTextActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val auth = FirebaseClient.getValidAuth(this@ProcessTextActivity)
             if (auth == null) {
-                tvStatus.text = "Bạn chưa đăng nhập. Hãy mở app Hồ Sơ Y Đức để đăng nhập trước."
+                tvStatus.text = "Chưa đăng nhập hoặc không có kết nối mạng. Hãy mở app Hồ Sơ Y Đức để kiểm tra."
                 btnSave.isEnabled = false
             } else {
                 tvStatus.text = "Đăng nhập: ${auth.email}"

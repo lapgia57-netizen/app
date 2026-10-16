@@ -5,14 +5,16 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import org.json.JSONObject
 
-data class RecordItem(val key: String, val json: JSONObject)
-
+/**
+ * Chỉ giữ các dòng đã tải (mỗi lần 100). Thêm trang mới bằng notifyItemRangeInserted
+ * thay vì notifyDataSetChanged() trên toàn bộ danh sách.
+ */
 class RecordsAdapter(
-    private var items: List<RecordItem>,
-    private val onDelete: (RecordItem) -> Unit
+    private val onDelete: (RecordRow) -> Unit
 ) : RecyclerView.Adapter<RecordsAdapter.VH>() {
+
+    private val items = ArrayList<RecordRow>()
 
     class VH(itemView: android.view.View) : RecyclerView.ViewHolder(itemView) {
         val tvOriginal: TextView = itemView.findViewById(R.id.tvOriginal)
@@ -21,9 +23,22 @@ class RecordsAdapter(
         val btnDelete: Button = itemView.findViewById(R.id.btnDelete)
     }
 
-    fun updateItems(newItems: List<RecordItem>) {
-        items = newItems
+    fun replaceAll(rows: List<RecordRow>) {
+        items.clear()
+        items.addAll(rows)
         notifyDataSetChanged()
+    }
+
+    fun append(rows: List<RecordRow>) {
+        if (rows.isEmpty()) return
+        val start = items.size
+        items.addAll(rows)
+        notifyItemRangeInserted(start, rows.size)
+    }
+
+    fun remove(key: String) {
+        val i = items.indexOfFirst { it.key == key }
+        if (i >= 0) { items.removeAt(i); notifyItemRemoved(i) }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -34,24 +49,15 @@ class RecordsAdapter(
     override fun getItemCount() = items.size
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val item = items[position]
-        val j = item.json
-        holder.tvOriginal.text = j.optString("original", "")
-        holder.tvMeta.text = "${j.optString("deviceModel", "")} · nguồn: ${j.optString("source", "")}"
-
-        val times = j.optJSONObject("times")
-        if (times != null) {
-            val sb = StringBuilder()
-            val keys = times.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                sb.append("$k: ${times.getString(k)}  ")
-            }
-            holder.tvTimes.text = sb.toString()
-        } else {
-            holder.tvTimes.text = ""
+        val row = items[position]
+        holder.tvOriginal.text = row.original
+        val seal = when (row.seal) {
+            true -> " · 🔒 hash thời gian hợp lệ"
+            false -> " · ⚠️ hash thời gian KHÔNG khớp"
+            null -> ""
         }
-
-        holder.btnDelete.setOnClickListener { onDelete(item) }
+        holder.tvMeta.text = "${row.device} · nguồn: ${row.source}$seal"
+        holder.tvTimes.text = row.timesText
+        holder.btnDelete.setOnClickListener { onDelete(row) }
     }
 }

@@ -4,9 +4,10 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.OutputStreamWriter
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 // Cấu hình lấy từ mã nguồn web gốc của bạn
 object FirebaseConfig {
@@ -47,71 +48,76 @@ val SUPPORTED_TIMEZONES = listOf(
     TimezoneOption("AU", "Úc (Sydney) UTC+10/+11", "Australia/Sydney", java.util.Locale("en", "AU"))
 )
 
-fun computeTimes(codes: List<String>): Map<String, String> {
-    val result = mutableMapOf<String, String>()
+fun computeTimes(codes: List<String>, millis: Long = System.currentTimeMillis()): Map<String, String> {
+    val result = LinkedHashMap<String, String>()
+    val date = java.util.Date(millis)
     for (code in codes) {
         val zone = SUPPORTED_TIMEZONES.find { it.code == code } ?: continue
         val fmt = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", zone.locale)
         fmt.timeZone = java.util.TimeZone.getTimeZone(zone.zoneId)
-        result[code] = fmt.format(java.util.Date())
+        result[code] = fmt.format(date)
     }
     return result
 }
 
 sealed class ApiResult<out T> {
     data class Success<T>(val data: T) : ApiResult<T>()
-    data class Failure(val message: String) : ApiResult<Nothing>()
+    data class Failure(val message: String, val indexMissing: Boolean = false) : ApiResult<Nothing>()
 }
 
 object FirebaseClient {
 
-    private suspend fun httpPost(urlStr: String, body: String, formEncoded: Boolean = false): JSONObject =
-        withContext(Dispatchers.IO) {
-            val conn = URL(urlStr).openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.doOutput = true
-            conn.setRequestProperty("Content-Type", if (formEncoded) "application/x-www-form-urlencoded" else "application/json")
-            OutputStreamWriter(conn.outputStream).use { it.write(body) }
-            val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
-            val text = stream.bufferedReader().readText()
+    private class HttpResp(val code: Int, val body: String)
+
+    private fun request(method: String, urlStr: String, body: String? = null, contentType: String = "application/json"): HttpResp {
+        val conn = URL(urlStr).openConnection() as HttpURLConnection
+        try {
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 60_000
+            conn.requestMethod = method
+            if (body != null) {
+                conn.doOutput = true
+                conn.setRequestProperty("Content-Type", contentType)
+                conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            }
+            val code = conn.responseCode
+            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: ""
+            return HttpResp(code, text)
+        } finally {
             conn.disconnect()
-            JSONObject(text)
+        }
+    }
+
+    // Mọi I/O và parse JSON chạy trên IO; lỗi mạng trả về mã -1 thay vì làm app crash
+    private suspend fun call(method: String, url: String, body: String? = null, contentType: String = "application/json"): HttpResp =
+        withContext(Dispatchers.IO) {
+            try { request(method, url, body, contentType) }
+            catch (e: IOException) { HttpResp(-1, e.message ?: "network") }
         }
 
-    private suspend fun httpPut(urlStr: String, body: String): String = withContext(Dispatchers.IO) {
-        val conn = URL(urlStr).openConnection() as HttpURLConnection
-        conn.requestMethod = "PUT"
-        conn.doOutput = true
-        conn.setRequestProperty("Content-Type", "application/json")
-        OutputStreamWriter(conn.outputStream).use { it.write(body) }
-        val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
-        val text = stream.bufferedReader().readText()
-        conn.disconnect()
-        text
+    private fun parseObj(text: String): JSONObject? = try { JSONObject(text) } catch (e: Exception) { null }
+    private fun enc(s: String): String = URLEncoder.encode(s, "UTF-8")
+    private fun errorMessage(r: HttpResp, fallback: String): String {
+        if (r.code == -1) return NETWORK_ERROR
+        val o = parseObj(r.body) ?: return fallback
+        val e = o.opt("error")
+        return when (e) {
+            is JSONObject -> e.optString("message", fallback)
+            is String -> e
+            else -> fallback
+        }
     }
 
-    private suspend fun httpGet(urlStr: String): String = withContext(Dispatchers.IO) {
-        val conn = URL(urlStr).openConnection() as HttpURLConnection
-        conn.requestMethod = "GET"
-        val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
-        val text = stream?.bufferedReader()?.readText() ?: ""
-        conn.disconnect()
-        text
-    }
-
-    private suspend fun httpDelete(urlStr: String) = withContext(Dispatchers.IO) {
-        val conn = URL(urlStr).openConnection() as HttpURLConnection
-        conn.requestMethod = "DELETE"
-        conn.inputStream.close()
-        conn.disconnect()
-    }
+    // ---------- Xác thực ----------
 
     suspend fun signIn(email: String, password: String): ApiResult<AuthData> {
         val body = JSONObject().apply {
             put("email", email); put("password", password); put("returnSecureToken", true)
         }.toString()
-        val res = httpPost("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FirebaseConfig.API_KEY}", body)
-        if (res.has("error")) return ApiResult.Failure(res.getJSONObject("error").optString("message", "Đăng nhập thất bại"))
+        val r = call("POST", "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FirebaseConfig.API_KEY}", body)
+        val res = parseObj(r.body)
+        if (res == null || res.has("error")) return ApiResult.Failure(errorMessage(r, "Đăng nhập thất bại"))
         return ApiResult.Success(parseAuth(res))
     }
 
@@ -119,14 +125,15 @@ object FirebaseClient {
         val body = JSONObject().apply {
             put("email", email); put("password", password); put("returnSecureToken", true)
         }.toString()
-        val res = httpPost("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FirebaseConfig.API_KEY}", body)
-        if (res.has("error")) return ApiResult.Failure(res.getJSONObject("error").optString("message", "Đăng ký thất bại"))
+        val r = call("POST", "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FirebaseConfig.API_KEY}", body)
+        val res = parseObj(r.body)
+        if (res == null || res.has("error")) return ApiResult.Failure(errorMessage(r, "Đăng ký thất bại"))
 
         val idToken = res.getString("idToken")
         val updateBody = JSONObject().apply {
             put("idToken", idToken); put("displayName", displayName); put("returnSecureToken", false)
         }.toString()
-        httpPost("https://identitytoolkit.googleapis.com/v1/accounts:update?key=${FirebaseConfig.API_KEY}", updateBody)
+        call("POST", "https://identitytoolkit.googleapis.com/v1/accounts:update?key=${FirebaseConfig.API_KEY}", updateBody)
 
         return ApiResult.Success(parseAuth(res, displayName))
     }
@@ -143,46 +150,133 @@ object FirebaseClient {
         )
     }
 
-    private suspend fun refreshToken(refreshToken: String): AuthData? {
-        val body = "grant_type=refresh_token&refresh_token=$refreshToken"
-        val res = httpPost("https://securetoken.googleapis.com/v1/token?key=${FirebaseConfig.API_KEY}", body, formEncoded = true)
-        if (res.has("error")) return null
+    private const val NETWORK_ERROR = "Lỗi kết nối mạng"
+
+    private suspend fun refreshToken(refreshToken: String): ApiResult<AuthData> {
+        val body = "grant_type=refresh_token&refresh_token=${enc(refreshToken)}"
+        val r = call("POST", "https://securetoken.googleapis.com/v1/token?key=${FirebaseConfig.API_KEY}", body, "application/x-www-form-urlencoded")
+        if (r.code == -1) return ApiResult.Failure(NETWORK_ERROR)
+        val res = parseObj(r.body)
+        if (res == null || res.has("error")) return ApiResult.Failure("Phiên đăng nhập hết hạn")
         val expiresIn = res.optString("expires_in", "3600").toLongOrNull() ?: 3600L
-        return AuthData(
-            idToken = res.getString("id_token"),
-            refreshToken = res.getString("refresh_token"),
-            uid = res.getString("user_id"),
-            email = "", displayName = "",
-            expiresAt = System.currentTimeMillis() + expiresIn * 1000
+        return ApiResult.Success(
+            AuthData(
+                idToken = res.getString("id_token"),
+                refreshToken = res.getString("refresh_token"),
+                uid = res.getString("user_id"),
+                email = "", displayName = "",
+                expiresAt = System.currentTimeMillis() + expiresIn * 1000
+            )
         )
     }
 
-    // Trả về AuthData còn hiệu lực (tự làm mới token nếu sắp hết hạn), hoặc null nếu chưa đăng nhập
+    // Trả về AuthData còn hiệu lực (tự làm mới token nếu sắp hết hạn), hoặc null nếu chưa đăng nhập.
+    // Mất mạng KHÔNG xoá phiên đăng nhập (bản cũ bị đăng xuất oan khi offline).
     suspend fun getValidAuth(ctx: Context): AuthData? {
         val stored = Prefs.getAuth(ctx) ?: return null
         if (System.currentTimeMillis() < stored.expiresAt - 60_000) return stored
 
-        val refreshed = refreshToken(stored.refreshToken) ?: run { Prefs.clearAuth(ctx); return null }
-        val merged = refreshed.copy(email = stored.email, displayName = stored.displayName)
-        Prefs.saveAuth(ctx, merged)
-        return merged
+        return when (val r = refreshToken(stored.refreshToken)) {
+            is ApiResult.Success -> {
+                val merged = r.data.copy(email = stored.email, displayName = stored.displayName)
+                Prefs.saveAuth(ctx, merged)
+                merged
+            }
+            is ApiResult.Failure -> { if (r.message != NETWORK_ERROR) Prefs.clearAuth(ctx); null }
+        }
     }
 
-    suspend fun readAllRecords(auth: AuthData): ApiResult<JSONObject> {
-        val url = "${FirebaseConfig.DATABASE_URL}/users/${auth.uid}/data.json?auth=${auth.idToken}"
-        val text = httpGet(url)
-        if (text.isBlank() || text == "null") return ApiResult.Success(JSONObject())
-        return try { ApiResult.Success(JSONObject(text)) } catch (e: Exception) { ApiResult.Failure("Lỗi đọc dữ liệu") }
+    // ---------- Realtime Database ----------
+
+    private fun base(auth: AuthData) = "${FirebaseConfig.DATABASE_URL}/users/${auth.uid}/data"
+    private fun authQ(auth: AuthData) = "auth=${enc(auth.idToken)}"
+    private fun q(s: String) = enc("\"$s\"")
+
+    private suspend fun parseRecords(r: HttpResp): ApiResult<List<Record>> {
+        if (r.code !in 200..299) {
+            val msg = errorMessage(r, "Lỗi đọc dữ liệu")
+            return ApiResult.Failure(msg, indexMissing = msg.contains("Index not defined", ignoreCase = true))
+        }
+        return withContext(Dispatchers.IO) {
+            if (r.body.isBlank() || r.body == "null") return@withContext ApiResult.Success(emptyList<Record>())
+            try {
+                val o = JSONObject(r.body)
+                val out = ArrayList<Record>(o.length())
+                val it = o.keys()
+                while (it.hasNext()) {
+                    val k = it.next()
+                    val v = o.optJSONObject(k) ?: continue
+                    out.add(Record.fromJson(k, v))
+                }
+                ApiResult.Success(out)
+            } catch (e: Exception) {
+                ApiResult.Failure("Lỗi đọc dữ liệu")
+            }
+        }
+    }
+
+    /**
+     * Đọc một đoạn bản ghi theo khoá (orderBy="$key" là chỉ mục có sẵn, không cần cấu hình rules).
+     * startAt/endAt đều bao gồm biên. Dùng để tải song song theo "phân vùng" và phân trang.
+     */
+    suspend fun fetchKeyRange(auth: AuthData, startAt: String?, endAt: String?, limit: Int): ApiResult<List<Record>> {
+        val sb = StringBuilder("${base(auth)}.json?${authQ(auth)}&orderBy=${enc("\"\$key\"")}&limitToFirst=$limit")
+        if (startAt != null) sb.append("&startAt=").append(q(startAt))
+        if (endAt != null) sb.append("&endAt=").append(q(endAt))
+        return parseRecords(call("GET", sb.toString()))
+    }
+
+    /**
+     * Chỉ lấy bản ghi mới (savedAt >= from). Cần ".indexOn": ["savedAt"] trong rules;
+     * nếu chưa có, trả Failure(indexMissing=true) để SyncManager tự chuyển sang cách đối chiếu khoá.
+     */
+    suspend fun fetchSince(auth: AuthData, from: Long, limit: Int): ApiResult<List<Record>> {
+        val url = "${base(auth)}.json?${authQ(auth)}&orderBy=${enc("\"savedAt\"")}&startAt=$from&limitToFirst=$limit"
+        return parseRecords(call("GET", url))
+    }
+
+    /** Chỉ danh sách khoá (≈ 700 KB cho 20k bản ghi thay vì ~20 MB). */
+    suspend fun shallowKeys(auth: AuthData): ApiResult<Set<String>> {
+        val r = call("GET", "${base(auth)}.json?${authQ(auth)}&shallow=true")
+        if (r.code !in 200..299) return ApiResult.Failure(errorMessage(r, "Lỗi đọc dữ liệu"))
+        return withContext(Dispatchers.IO) {
+            if (r.body.isBlank() || r.body == "null") return@withContext ApiResult.Success(emptySet<String>())
+            try {
+                val o = JSONObject(r.body)
+                val s = HashSet<String>(o.length() * 2)
+                o.keys().forEach { s.add(it) }
+                ApiResult.Success(s as Set<String>)
+            } catch (e: Exception) { ApiResult.Failure("Lỗi đọc dữ liệu") }
+        }
+    }
+
+    suspend fun fetchOne(auth: AuthData, key: String): ApiResult<Record?> {
+        val r = call("GET", "${base(auth)}/${enc(key)}.json?${authQ(auth)}")
+        if (r.code !in 200..299) return ApiResult.Failure(errorMessage(r, "Lỗi đọc dữ liệu"))
+        if (r.body.isBlank() || r.body == "null") return ApiResult.Success(null)
+        val o = parseObj(r.body) ?: return ApiResult.Failure("Lỗi đọc dữ liệu")
+        return ApiResult.Success(Record.fromJson(key, o))
     }
 
     suspend fun writeRecord(auth: AuthData, key: String, payload: JSONObject): ApiResult<Unit> {
-        val url = "${FirebaseConfig.DATABASE_URL}/users/${auth.uid}/data/$key.json?auth=${auth.idToken}"
-        val res = httpPut(url, payload.toString())
-        return if (res.contains("\"error\"")) ApiResult.Failure("Lỗi ghi dữ liệu") else ApiResult.Success(Unit)
+        val r = call("PUT", "${base(auth)}/${enc(key)}.json?${authQ(auth)}", payload.toString())
+        return if (r.code in 200..299) ApiResult.Success(Unit) else ApiResult.Failure(errorMessage(r, "Lỗi ghi dữ liệu"))
     }
 
-    suspend fun deleteRecord(auth: AuthData, key: String) {
-        val url = "${FirebaseConfig.DATABASE_URL}/users/${auth.uid}/data/$key.json?auth=${auth.idToken}"
-        httpDelete(url)
+    /** Ghi nhiều bản ghi trong 1 request (PATCH qua method-override) -> khôi phục 20k bản chỉ ~70 request. */
+    suspend fun writeRecordsBatch(auth: AuthData, records: List<Record>): ApiResult<Unit> {
+        if (records.isEmpty()) return ApiResult.Success(Unit)
+        val body = withContext(Dispatchers.Default) {
+            val o = JSONObject()
+            for (rec in records) o.put(rec.key, rec.toJson())
+            o.toString()
+        }
+        val r = call("POST", "${base(auth)}.json?${authQ(auth)}&x-http-method-override=PATCH", body)
+        return if (r.code in 200..299) ApiResult.Success(Unit) else ApiResult.Failure(errorMessage(r, "Lỗi ghi dữ liệu"))
+    }
+
+    suspend fun deleteRecord(auth: AuthData, key: String): Boolean {
+        val r = call("DELETE", "${base(auth)}/${enc(key)}.json?${authQ(auth)}")
+        return r.code in 200..299
     }
 }

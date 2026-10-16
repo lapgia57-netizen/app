@@ -21,6 +21,11 @@ object Prefs {
     private const val KEY_DISPLAY_NAME = "displayName"
     private const val KEY_EXPIRES_AT = "expiresAt"
     private const val KEY_TIMEZONES = "timezones"
+    private const val KEY_SYNC_UID = "syncUid"
+    private const val KEY_SYNC_CURSOR = "syncCursor"
+    private const val KEY_LAST_FULL = "lastFullSync"
+    private const val KEY_LAST_SYNC = "lastSync"
+    private const val KEY_INDEX_MISSING = "indexMissing"
 
     val DEFAULT_TIMEZONES = listOf("VN", "KR", "CN", "JP", "SG", "TH")
 
@@ -70,5 +75,25 @@ object Prefs {
     fun setSelectedTimezones(ctx: Context, codes: List<String>) {
         val arr = JSONArray(codes)
         prefs(ctx).edit().putString(KEY_TIMEZONES, arr.toString()).apply()
+    }
+
+    // ---------- Trạng thái đồng bộ với bộ nhớ đệm cục bộ ----------
+
+    fun getSyncUid(ctx: Context): String? = prefs(ctx).getString(KEY_SYNC_UID, null)
+    fun getSyncCursor(ctx: Context): Long = prefs(ctx).getLong(KEY_SYNC_CURSOR, 0L)
+    fun setSyncCursor(ctx: Context, v: Long) = prefs(ctx).edit().putLong(KEY_SYNC_CURSOR, v).apply()
+    fun getLastFullSyncAt(ctx: Context): Long = prefs(ctx).getLong(KEY_LAST_FULL, 0L)
+    fun setLastFullSyncAt(ctx: Context, v: Long) = prefs(ctx).edit().putLong(KEY_LAST_FULL, v).apply()
+    fun getLastSyncAt(ctx: Context): Long = prefs(ctx).getLong(KEY_LAST_SYNC, 0L)
+    fun setLastSyncAt(ctx: Context, v: Long) = prefs(ctx).edit().putLong(KEY_LAST_SYNC, v).apply()
+    fun isIndexMissing(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_INDEX_MISSING, false)
+    fun setIndexMissing(ctx: Context, v: Boolean) = prefs(ctx).edit().putBoolean(KEY_INDEX_MISSING, v).apply()
+
+    /** Xoá mốc đồng bộ và gán cho tài khoản mới (uid = null khi đăng xuất). */
+    fun resetSync(ctx: Context, uid: String?) {
+        val e = prefs(ctx).edit()
+        e.remove(KEY_SYNC_CURSOR).remove(KEY_LAST_FULL).remove(KEY_LAST_SYNC).remove(KEY_INDEX_MISSING)
+        if (uid == null) e.remove(KEY_SYNC_UID) else e.putString(KEY_SYNC_UID, uid)
+        e.apply()
     }
 }

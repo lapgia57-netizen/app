@@ -18,6 +18,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="13sp"
+            android:maxLines="8"
+            android:ellipsize="end"
             android:textColor="#212529" />
 
         <TextView
