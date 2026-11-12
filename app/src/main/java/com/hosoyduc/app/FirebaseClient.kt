@@ -121,31 +121,14 @@ object FirebaseClient {
         return ApiResult.Success(parseAuth(res))
     }
 
-    suspend fun signUp(email: String, password: String, displayName: String): ApiResult<AuthData> {
-        val body = JSONObject().apply {
-            put("email", email); put("password", password); put("returnSecureToken", true)
-        }.toString()
-        val r = call("POST", "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FirebaseConfig.API_KEY}", body)
-        val res = parseObj(r.body)
-        if (res == null || res.has("error")) return ApiResult.Failure(errorMessage(r, "Đăng ký thất bại"))
-
-        val idToken = res.getString("idToken")
-        val updateBody = JSONObject().apply {
-            put("idToken", idToken); put("displayName", displayName); put("returnSecureToken", false)
-        }.toString()
-        call("POST", "https://identitytoolkit.googleapis.com/v1/accounts:update?key=${FirebaseConfig.API_KEY}", updateBody)
-
-        return ApiResult.Success(parseAuth(res, displayName))
-    }
-
-    private fun parseAuth(res: JSONObject, displayNameOverride: String? = null): AuthData {
+    private fun parseAuth(res: JSONObject): AuthData {
         val expiresIn = res.optString("expiresIn", "3600").toLongOrNull() ?: 3600L
         return AuthData(
             idToken = res.getString("idToken"),
             refreshToken = res.getString("refreshToken"),
             uid = res.getString("localId"),
             email = res.optString("email", ""),
-            displayName = displayNameOverride ?: res.optString("displayName", res.optString("email", "").substringBefore("@")),
+            displayName = res.optString("displayName", res.optString("email", "").substringBefore("@")),
             expiresAt = System.currentTimeMillis() + expiresIn * 1000
         )
     }

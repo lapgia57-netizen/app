@@ -32,7 +32,6 @@ class MainActivity : AppCompatActivity() {
         const val SEARCH_DEBOUNCE_MS = 250L
     }
 
-    private var isRegisterMode = false
     private lateinit var adapter: RecordsAdapter
     private lateinit var db: RecordDb
 
@@ -117,36 +116,24 @@ class MainActivity : AppCompatActivity() {
         startSync(full = false)  // rồi đồng bộ nền
     }
 
-    // ---------- Đăng nhập / đăng ký ----------
+    // ---------- Đăng nhập ----------
 
     private fun setupAuthUI() {
-        val etDisplayName = findViewById<EditText>(R.id.etDisplayName)
         val etEmail = findViewById<EditText>(R.id.etEmail)
         val etPassword = findViewById<EditText>(R.id.etPassword)
         val btnAuth = findViewById<Button>(R.id.btnAuth)
-        val tvToggle = findViewById<TextView>(R.id.tvToggleMode)
         val tvError = findViewById<TextView>(R.id.tvAuthError)
-
-        tvToggle.setOnClickListener {
-            isRegisterMode = !isRegisterMode
-            etDisplayName.visibility = if (isRegisterMode) View.VISIBLE else View.GONE
-            btnAuth.text = if (isRegisterMode) "Đăng ký" else "Đăng nhập"
-            tvToggle.text = if (isRegisterMode) "Đã có tài khoản? Đăng nhập" else "Chưa có tài khoản? Đăng ký ngay"
-        }
 
         btnAuth.setOnClickListener {
             val email = etEmail.text.toString().trim()
             val password = etPassword.text.toString().trim()
-            val displayName = etDisplayName.text.toString().trim()
             tvError.text = ""
 
             if (email.isEmpty() || password.isEmpty()) { tvError.text = "Vui lòng nhập email và mật khẩu."; return@setOnClickListener }
-            if (isRegisterMode && displayName.isEmpty()) { tvError.text = "Vui lòng nhập tên hiển thị."; return@setOnClickListener }
 
             btnAuth.isEnabled = false
             lifecycleScope.launch {
-                val result = if (isRegisterMode) FirebaseClient.signUp(email, password, displayName)
-                             else FirebaseClient.signIn(email, password)
+                val result = FirebaseClient.signIn(email, password)
                 btnAuth.isEnabled = true
                 when (result) {
                     is ApiResult.Success -> {

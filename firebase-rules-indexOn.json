@@ -1,8 +1,9 @@
 {
-  "_ghi_chu": "KHÔNG dán đè toàn bộ rules của bạn. Chỉ thêm dòng .indexOn vào nút users/$uid/data (giữ nguyên .read/.write hiện có).",
   "rules": {
     "users": {
       "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
         "data": {
           ".indexOn": ["savedAt"]
         }

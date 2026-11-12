@@ -31,12 +31,24 @@ Sửa nội dung **hoặc** sửa bất kỳ mốc giờ nào đều làm `seal`
 
 ## Việc bạn cần làm (1 lần, rất nên làm)
 
-Thêm chỉ mục để đồng bộ gia tăng chỉ tải bản mới. Trong Firebase Console → Realtime Database → Rules, thêm vào nút `users/$uid/data` dòng:
+Trong Firebase Console → Realtime Database → Rules, giữ quyền truy cập theo UID và thêm chỉ mục `savedAt` bên trong `users/$uid/data`. Tệp `firebase-rules-indexOn.json` có mẫu rules đầy đủ tương ứng:
 
 ```
-".indexOn": ["savedAt"]
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "data": {
+          ".indexOn": ["savedAt"]
+        }
+      }
+    }
+  }
+}
 ```
-(xem `firebase-rules-indexOn.json`; **chỉ thêm dòng này, đừng ghi đè rules hiện có**.)
+Chỉ áp dụng mẫu này nếu cấu trúc rules hiện tại của bạn đúng như trên; nếu có các nhánh/quyền khác, hãy gộp `.indexOn` vào rules hiện có thay vì ghi đè chúng. Ứng dụng chỉ cho phép đăng nhập, không tạo tài khoản. Tài khoản cần được cấp riêng qua Firebase Authentication; quy tắc `.read`/`.write` giới hạn mỗi người dùng vào dữ liệu thuộc UID của chính họ.
 
 Nếu chưa thêm, app vẫn chạy đúng: tự chuyển sang đối chiếu danh sách khoá (~1,75 MB cho 50k bản), chậm hơn một chút.
 

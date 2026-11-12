@@ -28,14 +28,6 @@
                 android:layout_marginBottom="16dp" />
 
             <EditText
-                android:id="@+id/etDisplayName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Tên hiển thị"
-                android:visibility="gone"
-                android:layout_marginBottom="8dp" />
-
-            <EditText
                 android:id="@+id/etEmail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -60,11 +52,10 @@
                 android:textColor="@color/white" />
 
             <TextView
-                android:id="@+id/tvToggleMode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Chưa có tài khoản? Đăng ký ngay"
-                android:textColor="@color/primary"
+                android:text="Đăng nhập bằng tài khoản đã được cấp."
+                android:textColor="@color/gray"
                 android:gravity="center"
                 android:padding="12dp" />
 
