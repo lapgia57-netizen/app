@@ -235,7 +235,7 @@ object FirebaseClient {
         return parseRecords(call("GET", url))
     }
 
-    /** Chỉ danh sách khoá (≈ 700 KB cho 20k bản ghi thay vì ~20 MB). */
+    /** Chỉ danh sách khoá (xấp xỉ 1,75 MB cho 50k bản ghi, tùy kích thước khóa). */
     suspend fun shallowKeys(auth: AuthData): ApiResult<Set<String>> {
         val r = call("GET", "${base(auth)}.json?${authQ(auth)}&shallow=true")
         if (r.code !in 200..299) return ApiResult.Failure(errorMessage(r, "Lỗi đọc dữ liệu"))
@@ -263,7 +263,7 @@ object FirebaseClient {
         return if (r.code in 200..299) ApiResult.Success(Unit) else ApiResult.Failure(errorMessage(r, "Lỗi ghi dữ liệu"))
     }
 
-    /** Ghi nhiều bản ghi trong 1 request (PATCH qua method-override) -> khôi phục 20k bản chỉ ~70 request. */
+    /** Ghi nhiều bản ghi trong 1 request (PATCH qua method-override) -> khôi phục 50k bản khoảng 167 request. */
     suspend fun writeRecordsBatch(auth: AuthData, records: List<Record>): ApiResult<Unit> {
         if (records.isEmpty()) return ApiResult.Success(Unit)
         val body = withContext(Dispatchers.Default) {

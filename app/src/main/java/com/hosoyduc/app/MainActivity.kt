@@ -363,7 +363,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /** Ghi trực tiếp từ SQLite ra tệp theo dòng (không dựng cả JSON 20k bản ghi trong RAM). Định dạng giữ nguyên. */
+    /** Ghi trực tiếp từ SQLite ra tệp theo dòng (không dựng cả JSON 50k bản ghi trong RAM). Định dạng giữ nguyên. */
     private fun writeBackupToUri(uri: Uri) {
         val pwd = pendingBackupPassword ?: return
         if (busy) { toast("Đang xử lý, vui lòng đợi."); return }

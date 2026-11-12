@@ -20,7 +20,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="🩺 Hồ Sơ Y Đức"
+                android:text="✚ Hồ Sơ Y Đức"
                 android:textSize="22sp"
                 android:textStyle="bold"
                 android:textColor="@color/primary"
@@ -79,7 +79,7 @@
 
     <!--
       DASHBOARD
-      Trước đây: RecyclerView(wrap_content) nằm trong ScrollView -> cả 20k item bị tạo view cùng lúc, không tái sử dụng.
+      Trước đây: RecyclerView(wrap_content) nằm trong ScrollView -> cả 50k item bị tạo view cùng lúc, không tái sử dụng.
       Bây giờ: RecyclerView tự cuộn (match_parent) trong CoordinatorLayout; phần điều khiển phía trên thu gọn khi cuộn xuống.
     -->
     <androidx.coordinatorlayout.widget.CoordinatorLayout

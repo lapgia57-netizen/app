@@ -7,8 +7,8 @@ import org.json.JSONObject
 
 /**
  * Bộ nhớ đệm cục bộ (SQLite) cho bản ghi của người dùng.
- * - Mở app: hiển thị ngay từ máy, không phải tải lại 20k bản ghi từ Firebase.
- * - Phân trang keyset (saved_at, k) -> cuộn mượt kể cả 20k+ dòng.
+ * - Mở app: hiển thị ngay từ máy, không phải tải lại 50k bản ghi từ Firebase.
+ * - Phân trang keyset (saved_at, k) -> chỉ truy vấn các dòng đang cần hiển thị.
  * - Chống trùng chỉ quét các ứng viên cùng dải độ dài, không tải lại toàn bộ dữ liệu.
  */
 class RecordDb private constructor(ctx: Context) :
@@ -183,7 +183,7 @@ class RecordDb private constructor(ctx: Context) :
         return false
     }
 
-    /** Chỉ mục trong RAM cho nhập hàng loạt (20k bản ≈ vài MB). */
+    /** Chỉ mục trong RAM cho nhập hàng loạt; bộ nhớ dùng tùy độ dài bản ghi. */
     fun loadIndex(): Dedup.Index {
         val idx = Dedup.Index()
         readableDatabase.rawQuery("SELECT norm, sig FROM records", null).use { c ->
