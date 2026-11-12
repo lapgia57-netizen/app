@@ -2,7 +2,7 @@
 
 Ứng dụng lưu cache bằng SQLite và đồng bộ theo trang/lô, nên danh sách 50.000 bản ghi không bị dựng thành 50.000 view. Tải lần đầu vẫn cần đồng bộ dữ liệu từ Firebase; những lần mở sau hiển thị trang đầu từ cache trước rồi đồng bộ nền. Thời gian đồng bộ phụ thuộc mạng, kích thước nội dung và giới hạn Firebase của dự án.
 
-Phân trang đồng bộ gia tăng dùng con trỏ kép `(savedAt, key)` để không bỏ sót bản ghi khi nhiều mục có cùng mốc thời gian. Giao diện đăng nhập và danh sách đã được làm mới theo tông xanh y tế, dạng thẻ; các thao tác lưu, tìm kiếm, múi giờ, backup và đồng bộ vẫn giữ nguyên.
+Đồng bộ gia tăng chỉ gửi một tham số `startAt` hợp lệ cho Firebase. Khi chia trang, ứng dụng giữ nguyên nhóm bản ghi có cùng `savedAt` để không bỏ sót bản ghi hoặc tạo query bound thứ hai không hợp lệ. Lần quét đầu phân trang theo key thực từ Firebase, không gửi ký tự `/` không hợp lệ trong query bound. Giao diện đăng nhập và danh sách đã được làm mới theo tông xanh y tế, dạng thẻ; các thao tác lưu, tìm kiếm, múi giờ, backup và đồng bộ vẫn giữ nguyên.
 
 ## Điểm nghẽn của bản 1.0 và cách xử lý
 
@@ -17,7 +17,7 @@ Phân trang đồng bộ gia tăng dùng con trỏ kép `(savedAt, key)` để k
 | 7 | Hex bằng `"%02x".format` từng byte; AES băm lại mật khẩu cho từng bản | Bảng tra hex; khoá AES tính 1 lần |
 | 8 | Không có timeout mạng; mất mạng làm app crash hoặc bị đăng xuất oan | Có timeout, lỗi mạng trả về thông báo; offline vẫn xem được dữ liệu |
 
-Tải lần đầu (máy mới / cài lại): 19 phân vùng khoá chạy song song 4 luồng, 1000 bản/trang; danh sách hiện ngay khi những trang đầu về. Các lần sau chỉ lấy bản mới.
+Tải lần đầu (máy mới / cài lại): phân trang theo key, 1000 bản/trang; danh sách hiện ngay khi những trang đầu về. Các lần sau chỉ lấy bản mới.
 
 ## Hash cả thời gian vào bộ mã
 

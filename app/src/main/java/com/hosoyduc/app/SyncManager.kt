@@ -6,16 +6,13 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Đồng bộ Firebase -> RecordDb mà không phải tải lại toàn bộ dữ liệu mỗi lần:
- *  - Lần đầu: tải song song theo 19 "phân vùng" khoá (hex 0-f + 3 vùng biên), mỗi trang 1000 bản.
+ *  - Lần đầu: quét tuần tự theo key, mỗi trang 1000 bản; không dùng bound giả có thể không hợp lệ.
  *  - Các lần sau: chỉ lấy bản mới (savedAt >= mốc cũ - 5 phút) nếu có .indexOn savedAt.
  *  - Mỗi 24h / bấm "Đồng bộ": đối chiếu danh sách khoá (shallow) để bắt bản bị xoá/ghi lệch đồng hồ.
  */
@@ -27,6 +24,7 @@ object SyncManager {
     private const val FULL_RECONCILE_MS = 24 * 3_600_000L
     private const val SMALL_FETCH = 200
     private const val INCREMENTAL_PAGE = 1000
+    private const val MAX_INCREMENTAL_PAGE = 50_001
     private const val FRESH_MS = 60_000L
     private const val FRESH_MS_NO_INDEX = 10 * 60_000L
 
@@ -71,12 +69,7 @@ object SyncManager {
             }
         }
 
-    // ---------- Lần đầu: tải song song theo phân vùng ----------
-
-    private val SHARDS: List<Pair<String?, String?>> =
-        listOf<Pair<String?, String?>>(null to "/\uf8ff") +
-            "0123456789abcdef".map { c -> c.toString() to "$c\uf8ff" } +
-            listOf<Pair<String?, String?>>(":" to "`\uf8ff", "g" to null)
+    // ---------- Lần đầu: quét phân trang theo key ----------
 
     private suspend fun initialScan(ctx: Context, auth: AuthData, db: RecordDb, onProgress: ((Int) -> Unit)?): ApiResult<String> {
         val r = scanAll(auth, db, onProgress)
@@ -86,41 +79,28 @@ object SyncManager {
         return ApiResult.Success("initial")
     }
 
-    /** Tải toàn bộ, trả về savedAt lớn nhất đã thấy. */
+    /** Tải toàn bộ theo key; dùng key thực có trong DB làm bound cho trang kế tiếp. */
     private suspend fun scanAll(auth: AuthData, db: RecordDb, onProgress: ((Int) -> Unit)?): ApiResult<Long> {
-        val loaded = AtomicInteger(0)
-        val maxSaved = AtomicLong(0L)
-        val sem = Semaphore(4)
-        val results = coroutineScope {
-            SHARDS.map { (start, end) ->
-                async { sem.withPermit { scanShard(auth, db, start, end, loaded, maxSaved, onProgress) } }
-            }.awaitAll()
-        }
-        results.firstOrNull { it is ApiResult.Failure }?.let { return it as ApiResult.Failure }
-        return ApiResult.Success(maxSaved.get())
-    }
-
-    private suspend fun scanShard(
-        auth: AuthData, db: RecordDb, start: String?, end: String?,
-        loaded: AtomicInteger, maxSaved: AtomicLong, onProgress: ((Int) -> Unit)?
-    ): ApiResult<Unit> {
-        var cursor = start
+        var cursor: String? = null
+        var loaded = 0
+        var maxSaved = 0L
         while (true) {
-            // startAt bao gồm biên -> xin PAGE+1 và bỏ phần tử trùng với con trỏ
-            val res = FirebaseClient.fetchKeyRange(auth, cursor, end, PAGE + 1)
-            if (res is ApiResult.Failure) return ApiResult.Failure(res.message)
-            val all = (res as ApiResult.Success).data
+            val all = when (val res = FirebaseClient.fetchKeyRange(auth, cursor, null, PAGE + 1)) {
+                is ApiResult.Failure -> return res
+                is ApiResult.Success -> res.data
+            }
             val page = if (cursor != null) all.filter { it.key != cursor } else all
             if (page.isNotEmpty()) {
                 withContext(Dispatchers.IO) { db.upsertAll(page) }
-                var m = 0L
-                for (rec in page) if (rec.savedAt > m) m = rec.savedAt
-                while (true) { val cur = maxSaved.get(); if (m <= cur || maxSaved.compareAndSet(cur, m)) break }
-                onProgress?.invoke(loaded.addAndGet(page.size))
+                page.maxOfOrNull { it.savedAt }?.let { maxSaved = maxOf(maxSaved, it) }
+                loaded += page.size
+                onProgress?.invoke(loaded)
             }
-            if (all.size < PAGE + 1) return ApiResult.Success(Unit)
+            if (all.size < PAGE + 1) return ApiResult.Success(maxSaved)
             val last = all.maxOf { it.key }
-            if (cursor != null && last <= cursor) return ApiResult.Success(Unit) // không tiến triển -> dừng, tránh vòng lặp vô hạn
+            if (cursor != null && last <= cursor) {
+                return ApiResult.Failure("Đồng bộ dừng vì phân trang theo key không tiến triển.")
+            }
             cursor = last
         }
     }
@@ -130,11 +110,11 @@ object SyncManager {
     private suspend fun incremental(ctx: Context, auth: AuthData, db: RecordDb, onProgress: ((Int) -> Unit)?): ApiResult<String> {
         val oldCursor = Prefs.getSyncCursor(ctx)
         var from = (oldCursor - OVERLAP_MS).coerceAtLeast(0L)
-        var afterKey: String? = null
         var maxSaved = oldCursor
         var loaded = 0
+        var fetchLimit = INCREMENTAL_PAGE + 1
         while (true) {
-            when (val res = FirebaseClient.fetchSince(auth, from, afterKey, INCREMENTAL_PAGE + 2)) {
+            when (val res = FirebaseClient.fetchSince(auth, from, fetchLimit)) {
                 is ApiResult.Failure -> {
                     if (res.indexMissing) {
                         Prefs.setIndexMissing(ctx, true)
@@ -145,19 +125,33 @@ object SyncManager {
                 is ApiResult.Success -> {
                     Prefs.setIndexMissing(ctx, false)
                     val records = res.data
-                    val candidates = if (afterKey != null && records.firstOrNull()?.let {
-                            it.savedAt == from && it.key == afterKey
-                        } == true) records.drop(1) else records
-                    if (candidates.isEmpty()) break
-                    val list = candidates.take(INCREMENTAL_PAGE)
+                    if (records.isEmpty()) break
+
+                    val pageIsFull = records.size == fetchLimit
+                    val boundaryTime = records.last().savedAt
+                    val completePageSize = if (pageIsFull) {
+                        records.indexOfFirst { it.savedAt == boundaryTime }
+                    } else {
+                        records.size
+                    }
+
+                    if (pageIsFull && completePageSize == 0) {
+                        if (fetchLimit >= MAX_INCREMENTAL_PAGE) {
+                            return ApiResult.Failure("Không thể phân trang đồng bộ: quá nhiều bản ghi có cùng savedAt.")
+                        }
+                        fetchLimit = (fetchLimit * 2).coerceAtMost(MAX_INCREMENTAL_PAGE)
+                        continue
+                    }
+
+                    val list = records.take(completePageSize)
                     withContext(Dispatchers.IO) { db.upsertAll(list) }
                     loaded += list.size
                     onProgress?.invoke(loaded)
-                    val last = list.last()
-                    if (last.savedAt > maxSaved) maxSaved = last.savedAt
-                    if (candidates.size <= INCREMENTAL_PAGE) break
-                    from = last.savedAt
-                    afterKey = last.key
+                    list.maxOfOrNull { it.savedAt }?.let { maxSaved = maxOf(maxSaved, it) }
+
+                    if (!pageIsFull) break
+                    from = boundaryTime
+                    fetchLimit = INCREMENTAL_PAGE + 1
                 }
             }
         }
