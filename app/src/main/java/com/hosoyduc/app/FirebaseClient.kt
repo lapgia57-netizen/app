@@ -191,6 +191,7 @@ object FirebaseClient {
                     val v = o.optJSONObject(k) ?: continue
                     out.add(Record.fromJson(k, v))
                 }
+                out.sortWith(compareBy<Record> { it.savedAt }.thenBy { it.key })
                 ApiResult.Success(out)
             } catch (e: Exception) {
                 ApiResult.Failure("Lỗi đọc dữ liệu")
@@ -213,8 +214,12 @@ object FirebaseClient {
      * Chỉ lấy bản ghi mới (savedAt >= from). Cần ".indexOn": ["savedAt"] trong rules;
      * nếu chưa có, trả Failure(indexMissing=true) để SyncManager tự chuyển sang cách đối chiếu khoá.
      */
-    suspend fun fetchSince(auth: AuthData, from: Long, limit: Int): ApiResult<List<Record>> {
-        val url = "${base(auth)}.json?${authQ(auth)}&orderBy=${enc("\"savedAt\"")}&startAt=$from&limitToFirst=$limit"
+    suspend fun fetchSince(auth: AuthData, from: Long, afterKey: String?, limit: Int): ApiResult<List<Record>> {
+        val url = buildString {
+            append("${base(auth)}.json?${authQ(auth)}&orderBy=${enc("\"savedAt\"")}&startAt=$from")
+            if (afterKey != null) append("&startAt=").append(q(afterKey))
+            append("&limitToFirst=").append(limit)
+        }
         return parseRecords(call("GET", url))
     }
 

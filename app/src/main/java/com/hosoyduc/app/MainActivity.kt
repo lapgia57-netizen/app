@@ -255,7 +255,11 @@ class MainActivity : AppCompatActivity() {
         if (syncJob?.isActive == true) { if (full) toast("Đang đồng bộ…"); return }
         syncJob = lifecycleScope.launch {
             val auth = FirebaseClient.getValidAuth(this@MainActivity)
-            if (auth == null) { if (full) toast("Không xác thực được (kiểm tra kết nối mạng)."); return@launch }
+            if (auth == null) {
+                setStatus("không thể xác thực")
+                toast("Không thể đồng bộ: kiểm tra kết nối hoặc đăng nhập lại.")
+                return@launch
+            }
             setStatus("đang đồng bộ…")
             val res = SyncManager.sync(this@MainActivity, auth, full) { n ->
                 runOnUiThread {
@@ -267,10 +271,13 @@ class MainActivity : AppCompatActivity() {
             when (res) {
                 is ApiResult.Success -> {
                     val s = res.data
-                    if (s.added > 0 || s.removed > 0 || full) reload()
+                    reload()
                     if (full) toast("Đồng bộ xong: +${s.added}, -${s.removed}")
                 }
-                is ApiResult.Failure -> toast("Đồng bộ lỗi: ${res.message}")
+                is ApiResult.Failure -> {
+                    setStatus("đồng bộ lỗi")
+                    toast("Đồng bộ lỗi: ${res.message}")
+                }
             }
         }
     }

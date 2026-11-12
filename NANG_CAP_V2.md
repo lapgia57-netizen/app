@@ -1,10 +1,12 @@
-# Hồ Sơ Y Đức v2.1 — mục tiêu 50.000 bản ghi / tài khoản
+# Hồ Sơ Y Đức v2.2 — mục tiêu 50.000 bản ghi / tài khoản
 
 Ứng dụng lưu cache bằng SQLite và đồng bộ theo trang/lô, nên danh sách 50.000 bản ghi không bị dựng thành 50.000 view. Tải lần đầu vẫn cần đồng bộ dữ liệu từ Firebase; những lần mở sau hiển thị trang đầu từ cache trước rồi đồng bộ nền. Thời gian đồng bộ phụ thuộc mạng, kích thước nội dung và giới hạn Firebase của dự án.
 
+Phân trang đồng bộ gia tăng dùng con trỏ kép `(savedAt, key)` để không bỏ sót bản ghi khi nhiều mục có cùng mốc thời gian. Giao diện đăng nhập và danh sách đã được làm mới theo tông xanh y tế, dạng thẻ; các thao tác lưu, tìm kiếm, múi giờ, backup và đồng bộ vẫn giữ nguyên.
+
 ## Điểm nghẽn của bản 1.0 và cách xử lý
 
-| # | Bản 1.0 | Bản 2.1 |
+| # | Bản 1.0 | Bản 2.2 |
 |---|---------|---------|
 | 1 | **Mỗi lần lưu** tải lại TOÀN BỘ dữ liệu từ Firebase (50k bản có thể chiếm nhiều MB) để so trùng | Bộ nhớ đệm SQLite trong máy (`RecordDb`). Lưu chỉ cần 1 request nhỏ (hoặc không cần nếu vừa đồng bộ < 60 giây) |
 | 2 | Mở app / sau mỗi thao tác tải lại toàn bộ + parse JSON **trên luồng chính** | Mở app hiển thị ngay từ cache, đồng bộ nền; mọi I/O và parse chạy trên IO/Default |
@@ -63,5 +65,5 @@ Nếu chưa thêm, app vẫn chạy đúng: tự chuyển sang đối chiếu da
 ## Tệp thay đổi
 
 Mới: `HashUtils.kt`, `Dedup.kt`, `Record.kt`, `RecordDb.kt`, `SyncManager.kt`.
-Sửa: `FirebaseClient.kt`, `RecordManager.kt`, `CryptoUtils.kt`, `Prefs.kt`, `MainActivity.kt`, `RecordsAdapter.kt`, `ProcessTextActivity.kt` (một dòng thông báo), `activity_main.xml`, `item_record.xml`, `app/build.gradle` (v2.1, thêm coordinatorlayout).
+Sửa: `FirebaseClient.kt`, `SyncManager.kt`, `RecordManager.kt`, `CryptoUtils.kt`, `Prefs.kt`, `MainActivity.kt`, `RecordsAdapter.kt`, `ProcessTextActivity.kt` (một dòng thông báo), `activity_main.xml`, `item_record.xml`, `app/build.gradle` (v2.2, thêm coordinatorlayout).
 Build như cũ qua GitHub Actions (`HUONG_DAN_BUILD_APK.md`).

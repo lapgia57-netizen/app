@@ -26,6 +26,7 @@ object SyncManager {
     private const val OVERLAP_MS = 5 * 60_000L
     private const val FULL_RECONCILE_MS = 24 * 3_600_000L
     private const val SMALL_FETCH = 200
+    private const val INCREMENTAL_PAGE = 1000
     private const val FRESH_MS = 60_000L
     private const val FRESH_MS_NO_INDEX = 10 * 60_000L
 
@@ -129,10 +130,11 @@ object SyncManager {
     private suspend fun incremental(ctx: Context, auth: AuthData, db: RecordDb, onProgress: ((Int) -> Unit)?): ApiResult<String> {
         val oldCursor = Prefs.getSyncCursor(ctx)
         var from = (oldCursor - OVERLAP_MS).coerceAtLeast(0L)
+        var afterKey: String? = null
         var maxSaved = oldCursor
         var loaded = 0
         while (true) {
-            when (val res = FirebaseClient.fetchSince(auth, from, PAGE)) {
+            when (val res = FirebaseClient.fetchSince(auth, from, afterKey, INCREMENTAL_PAGE + 2)) {
                 is ApiResult.Failure -> {
                     if (res.indexMissing) {
                         Prefs.setIndexMissing(ctx, true)
@@ -142,15 +144,20 @@ object SyncManager {
                 }
                 is ApiResult.Success -> {
                     Prefs.setIndexMissing(ctx, false)
-                    val list = res.data
-                    if (list.isEmpty()) break
+                    val records = res.data
+                    val candidates = if (afterKey != null && records.firstOrNull()?.let {
+                            it.savedAt == from && it.key == afterKey
+                        } == true) records.drop(1) else records
+                    if (candidates.isEmpty()) break
+                    val list = candidates.take(INCREMENTAL_PAGE)
                     withContext(Dispatchers.IO) { db.upsertAll(list) }
                     loaded += list.size
                     onProgress?.invoke(loaded)
-                    val pageMax = list.maxOf { it.savedAt }
-                    if (pageMax > maxSaved) maxSaved = pageMax
-                    if (list.size < PAGE) break
-                    from = if (pageMax > from) pageMax else pageMax + 1
+                    val last = list.last()
+                    if (last.savedAt > maxSaved) maxSaved = last.savedAt
+                    if (candidates.size <= INCREMENTAL_PAGE) break
+                    from = last.savedAt
+                    afterKey = last.key
                 }
             }
         }

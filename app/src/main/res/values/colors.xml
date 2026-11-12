@@ -1,8 +1,11 @@
 <resources>
-    <color name="primary">#4361EE</color>
-    <color name="secondary">#3F37C9</color>
-    <color name="danger">#F72585</color>
-    <color name="gray">#6C757D</color>
-    <color name="background">#F4F6F9</color>
+    <color name="primary">#147D73</color>
+    <color name="secondary">#0E5E58</color>
+    <color name="danger">#C94F5D</color>
+    <color name="gray">#71818A</color>
+    <color name="background">#F3F7F6</color>
     <color name="white">#FFFFFF</color>
+    <color name="ink">#19343B</color>
+    <color name="mint">#C8F1E8</color>
+    <color name="surface_stroke">#E2EBE9</color>
 </resources>
